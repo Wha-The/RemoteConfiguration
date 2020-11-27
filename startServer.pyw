@@ -597,7 +597,7 @@ def make_app():
 if __name__ == "__main__":
 	PORT = 8888
 	# Check for updates
-	data = requests.get(UPDATEURL).content
+	data = requests.get(UPDATEURL+"?cachebreaker="+str(time.time())).content
 	if data != open(__file__,'r').read():
 		if raw_input("Update avalible. Update? (Y/N) :")=="Y":
 			open(__file__,'wb').write(data)
