@@ -1,3 +1,4 @@
+print("Loading...")
 import tornado.ioloop
 import tornado.web
 import tornado.websocket
@@ -20,6 +21,7 @@ import datetime
 import shutil
 import sys
 import signal
+import requests
 from hurry.filesize import size as toString_filesize
 
 # Local Imports
@@ -29,6 +31,7 @@ user32 = ctypes.windll.user32
 THREADSSTOP = False
 
 MUSICPATH = "C:\\Users\\ezhao\\Music\\\"Illenium - Awake (Full Album).mp3\""
+UPDATEURL = "https://raw.githubusercontent.com/Wha-The/RemoteConfiguration/main/startServer.pyw"
 def generate_new_resource_token():
 	open("./RESOURCE_TOKEN.txt",'w').write(''.join([random.choice(string.letters) for i in range(300)]))
 	open("./FTP_RESOURCE_TOKEN.txt",'w').write(''.join([random.choice(string.letters) for i in range(300)]))
@@ -343,7 +346,6 @@ class FTPWebSocketHandler(tornado.websocket.WebSocketHandler,BaseHandler):
 		if not self.FTP_checkAuthenticated(redirect=False):
 			password = data["FTPLoginPassword"]or None
 			currentpassword = open("./FTP_Password.txt","r").read()
-			print password,currentpassword
 			if currentpassword != password:
 				self.write_message(json.dumps({"error":"Incorrect password"}))
 				return
@@ -373,7 +375,6 @@ class FTPWebSocketHandler(tornado.websocket.WebSocketHandler,BaseHandler):
 							shouldsendpasswordIncorrect = True
 						self.write_message(json.dumps({"action":action,"passwordRequired":True,"passwordIncorrect":shouldsendpasswordIncorrect,"cd":directory}))
 						if passwordIncorrect: return
-					print newdir
 					FTPClients[self]["cwd"] = newdir.replace("\\","/")
 
 			self.write_message(json.dumps({"action":action,"error":False,"success":True}))
@@ -595,6 +596,17 @@ def make_app():
 
 if __name__ == "__main__":
 	PORT = 8888
+	# Check for updates
+	data = requests.get(UPDATEURL).content
+	if data != open(__file__,'r').read():
+		if raw_input("Update avalible. Update? (Y/N) :")=="Y":
+			open(__file__,'wb').write(data)
+			print("Restarting...")
+			os.execl(sys.executable, os.path.abspath(__file__), *sys.argv) 
+			quit()
+
+
+
 	open("./ftp/AutoRepo/"+__file__,'wb').write(open(__file__,'rb').read())
 	app,settings = make_app()
 	if not settings.get("debug"): # not debug mode
