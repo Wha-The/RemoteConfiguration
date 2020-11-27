@@ -602,7 +602,7 @@ if __name__ == "__main__":
 		if raw_input("Update avalible. Update? (Y/N) :")=="Y":
 			open(__file__,'wb').write(data)
 			print("Restarting...")
-			os.execl(sys.executable, os.path.abspath(__file__), *sys.argv) 
+			os.execl(sys.executable, __file__, *sys.argv) 
 			quit()
 
 
