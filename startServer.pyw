@@ -61,7 +61,8 @@ def get_size(start_path = '.'):
                 total_size += os.path.getsize(fp)
 
     return total_size
-
+def BackgroundProcess():
+	return not sys.stdout.isatty()
 
 class Templates_template():
 	def __init__(self):
@@ -597,17 +598,17 @@ def make_app():
 if __name__ == "__main__":
 	PORT = 8888
 	# Check for updates
-	data = requests.get(UPDATEURL+"?cachebreaker="+str(time.time())).content
-	if data != open(__file__,'rb').read():
-		if raw_input("Update avalible. Update? (Y/N) :")=="Y":
-			open(__file__,'wb').write(data)
-			print("Restarting...")
-			os.execl(sys.executable, __file__, *sys.argv) 
-			quit()
+	if not BackgroundProcess():
+		data = requests.get(UPDATEURL+"?cachebreaker="+str(time.time())).content
+		if data != open(__file__,'rb').read():
+			if raw_input("Update avalible. Update? (Y/N) :")=="Y":
+				open(__file__,'wb').write(data)
+				print("Restarting...")
+				os.execl(sys.executable, __file__, *sys.argv) 
+				quit()
 
 
-
-	open("./ftp/AutoRepo/"+__file__,'wb').write(open(__file__,'rb').read())
+		open("./ftp/AutoRepo/"+__file__,'wb').write(open(__file__,'rb').read())
 	app,settings = make_app()
 	if not settings.get("debug"): # not debug mode
 		generate_new_resource_token()
