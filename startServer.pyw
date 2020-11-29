@@ -29,9 +29,20 @@ from balloontip import toast
 user32 = ctypes.windll.user32
 
 THREADSSTOP = False
+CAMERAUSEID = 1
 
 MUSICPATH = "C:\\Users\\ezhao\\Music\\\"Illenium - Awake (Full Album).mp3\""
 UPDATEURL = "https://raw.githubusercontent.com/Wha-The/RemoteConfiguration/main/startServer.pyw"
+
+def copytree(src, dst, symlinks=False, ignore=None):
+    for item in os.listdir(src):
+        s = os.path.join(src, item)
+        d = os.path.join(dst, item)
+        if os.path.isdir(s):
+            shutil.copytree(s, d, symlinks, ignore)
+        else:
+            shutil.copy2(s, d)
+
 def generate_new_resource_token():
 	open("./RESOURCE_TOKEN.txt",'w').write(''.join([random.choice(string.letters) for i in range(300)]))
 	open("./FTP_RESOURCE_TOKEN.txt",'w').write(''.join([random.choice(string.letters) for i in range(300)]))
@@ -153,13 +164,13 @@ class ControlHandler(BaseHandler):
 			self.write({"content":base64.b64encode(bytes),"scale":25,"content-type":"img:base64"})
 			toast("Screenshot taken","A take screenshot request was sent from the RemoteConfiguration localhost")
 		elif action == "takeCameraPicture":
-			vc = cv2.VideoCapture(1)
+			vc = cv2.VideoCapture(CAMERAUSEID)
 			success, frame = vc.read()
 			del vc
 			if not success:
 				self.write({"error":"Camera failed to take picture"})
 				return
-			img = PIL.Image.fromarray(frame)
+			img = PIL.Image.fromarray( cv2.cvtColor(frame, cv2.COLOR_BGR2RGB) )
 			buffer = io.BytesIO()
 			img.save(buffer,format="JPEG")
 			bytes = buffer.getvalue()
@@ -208,6 +219,7 @@ class LogsWebSocketHandler(tornado.websocket.WebSocketHandler):
 
 class LiveWebSocketHandler(tornado.websocket.WebSocketHandler):
 	def on_message(self, message):
+		global CAMERAUSEID
 		try:
 			message = json.loads(message)
 		except:
@@ -220,6 +232,12 @@ class LiveWebSocketHandler(tornado.websocket.WebSocketHandler):
 				return
 		feed = message["feed"] # Get what the client is listening for
 		reconnection=message.get("reconnection")
+		CAMERAUSEID_raw = message.get("cameraid") or str(CAMERAUSEID)
+		try:
+			CAMERAUSEID = int(CAMERAUSEID_raw)
+			print("Camera change to camera %d"%(CAMERAUSEID))
+		except:
+			pass
 		showtoast = (reconnection and (lambda title,body:None) or toast)
 		success = True
 		if feed == "screenshot":
@@ -272,13 +290,14 @@ def startWebSocket_CameraWriter():
 	while True:
 		if len(ws_connections["camera"]) >= 1: # Clients connected
 			if not vc:
-				vc = cv2.VideoCapture(1)
+				vc = cv2.VideoCapture(CAMERAUSEID)
 			success, frame = vc.read()
 			if not success:
 				time.sleep(1)
 				continue
+
 			def Processing_Local():
-				img = PIL.Image.fromarray(frame)
+				img = PIL.Image.fromarray( cv2.cvtColor(frame, cv2.COLOR_BGR2RGB) )
 				buffer = io.BytesIO()
 				#img.resize(img.size,PIL.Image.ANTIALIAS)
 				#img.save(buffer,format="JPEG",optimize=True,quality=QUALITY)
@@ -603,7 +622,7 @@ if __name__ == "__main__":
 				os.execl(sys.executable, __file__, *sys.argv) 
 				quit()
 
-
+	if not BackgroundProcess():
 		open("./ftp/AutoRepo/"+__file__,'wb').write(open(__file__,'rb').read())
 	app,settings = make_app()
 	if not settings.get("debug"): # not debug mode
