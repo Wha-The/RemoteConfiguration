@@ -8,7 +8,7 @@ import json
 import ctypes
 import psutil
 import base64
-import pyautogui
+import mss
 import threading
 import io
 import cv2
@@ -23,7 +23,8 @@ import sys
 import signal
 import requests
 from hurry.filesize import size as toString_filesize
-
+from PIL import Image
+import win32gui, win32ui, win32con, win32api
 # Local Imports
 from balloontip import toast
 user32 = ctypes.windll.user32
@@ -42,7 +43,21 @@ def copytree(src, dst, symlinks=False, ignore=None):
             shutil.copytree(s, d, symlinks, ignore)
         else:
             shutil.copy2(s, d)
-
+def takeScreenshot():
+	hwin = win32gui.GetDesktopWindow()
+	width = win32api.GetSystemMetrics(win32con.SM_CXVIRTUALSCREEN)
+	height = win32api.GetSystemMetrics(win32con.SM_CYVIRTUALSCREEN)
+	left = win32api.GetSystemMetrics(win32con.SM_XVIRTUALSCREEN)
+	top = win32api.GetSystemMetrics(win32con.SM_YVIRTUALSCREEN)
+	hwindc = win32gui.GetWindowDC(hwin)
+	srcdc = win32ui.CreateDCFromHandle(hwindc)
+	memdc = srcdc.CreateCompatibleDC()
+	bmp = win32ui.CreateBitmap()
+	bmp.CreateCompatibleBitmap(srcdc, width, height)
+	memdc.SelectObject(bmp)
+	memdc.BitBlt((0, 0), (width, height), srcdc, (left, top), win32con.SRCCOPY)
+	bmp.SaveBitmapFile(memdc, 'screenshot.bmp')
+	return Image.open("screenshot.bmp").convert("RGB")
 def generate_new_resource_token():
 	open("./RESOURCE_TOKEN.txt",'w').write(''.join([random.choice(string.letters) for i in range(300)]))
 	open("./FTP_RESOURCE_TOKEN.txt",'w').write(''.join([random.choice(string.letters) for i in range(300)]))
@@ -157,7 +172,7 @@ class ControlHandler(BaseHandler):
 			else:
 				self.write({"error":"No such program"})
 		elif action == "takeScreenshot":
-			screenshot = pyautogui.screenshot()
+			screenshot = takeScreenshot()
 			buffer = io.BytesIO()
 			screenshot.save(buffer,format="JPEG")
 			bytes = buffer.getvalue()
@@ -170,7 +185,7 @@ class ControlHandler(BaseHandler):
 			if not success:
 				self.write({"error":"Camera failed to take picture"})
 				return
-			img = PIL.Image.fromarray( cv2.cvtColor(frame, cv2.COLOR_BGR2RGB) )
+			img = Image.fromarray( cv2.cvtColor(frame, cv2.COLOR_BGR2RGB) )
 			buffer = io.BytesIO()
 			img.save(buffer,format="JPEG")
 			bytes = buffer.getvalue()
@@ -273,10 +288,10 @@ def startWebSocket_ScreenshotWriter():
 	global THREADSSTOP
 	while True:
 		if len(ws_connections["screenshot"]) >= 1: # Clients connected
-			img = pyautogui.screenshot()
+			img = takeScreenshot()
 			def Processing_Local():
 				buffer = io.BytesIO()
-				img.resize(img.size,PIL.Image.ANTIALIAS)
+				img.resize(img.size,Image.ANTIALIAS)
 				img.save(buffer,format="JPEG",optimize=True,quality=QUALITY)
 				bytes = buffer.getvalue()
 				threading.Thread(target=WebSocket_SendBytes,args=("screenshot",bytes)).start()
@@ -297,9 +312,9 @@ def startWebSocket_CameraWriter():
 				continue
 
 			def Processing_Local():
-				img = PIL.Image.fromarray( cv2.cvtColor(frame, cv2.COLOR_BGR2RGB) )
+				img = Image.fromarray( cv2.cvtColor(frame, cv2.COLOR_BGR2RGB) )
 				buffer = io.BytesIO()
-				#img.resize(img.size,PIL.Image.ANTIALIAS)
+				#img.resize(img.size,Image.ANTIALIAS)
 				#img.save(buffer,format="JPEG",optimize=True,quality=QUALITY)
 				img.save(buffer,format="JPEG")
 				bytes = buffer.getvalue()
