@@ -207,12 +207,6 @@ class LogsWebSocketHandler(tornado.websocket.WebSocketHandler):
 
 
 class LiveWebSocketHandler(tornado.websocket.WebSocketHandler):
-	def open(self):
-		resource_token = self.get_secure_cookie("Load_Resource_Token")
-		if resource_token != open("./RESOURCE_TOKEN.txt").read():
-			self.close()
-			return
-
 	def on_message(self, message):
 		try:
 			message = json.loads(message)
@@ -220,10 +214,12 @@ class LiveWebSocketHandler(tornado.websocket.WebSocketHandler):
 			self.write_message(json.dumps({"error":"400 Bad Request"}))
 		resource_token = self.get_secure_cookie("Load_Resource_Token")
 		if resource_token != open("./RESOURCE_TOKEN.txt").read():
-			self.close()
-			return
+			password = message.get("password")
+			if password != open("./Password.txt").read():
+				self.close()
+				return
 		feed = message["feed"] # Get what the client is listening for
-		reconnection=message["reconnection"]
+		reconnection=message.get("reconnection")
 		showtoast = (reconnection and (lambda title,body:None) or toast)
 		success = True
 		if feed == "screenshot":
@@ -598,7 +594,7 @@ def make_app():
 if __name__ == "__main__":
 	PORT = 8888
 	# Check for updates
-	if not BackgroundProcess():
+	if not BackgroundProcess() and not len(sys.argv)>= 1 and sys.argv[1]!="noupdate":
 		data = requests.get(UPDATEURL+"?cachebreaker="+str(time.time())).content
 		if data != open(__file__,'rb').read():
 			if raw_input("Update avalible. Update? (Y/N) :")=="Y":
